@@ -59,5 +59,5 @@ def create_components(sender, **kwargs):
 
 @receiver(pre_save, sender=User)
 def pre_save_customer_receiver(sender, **kwargs):
-    if kwargs.get('instance').is_customer == True:
+    if kwargs.get('instance').is_customer == True or kwargs.get('instance').is_company == True:
         kwargs.get('instance').username = kwargs.get('instance').email
