@@ -2,6 +2,7 @@ from django.db import models
 from django.dispatch import receiver
 from django.db.models.signals import post_save, pre_save
 from django.contrib.auth.models import AbstractUser
+from rest_framework.authtoken.models import Token
 
 # Create your models here.
 
@@ -9,7 +10,7 @@ from django.contrib.auth.models import AbstractUser
 class User(AbstractUser):
     is_company = models.BooleanField(default=False)
     is_customer = models.BooleanField(default=False)
-    profile_images = models.ImageField(
+    profile_image = models.ImageField(
         default="profile_images/default.jpg", upload_to='profile_images', blank=True, null=True)
 
     def __str__(self):
@@ -37,27 +38,26 @@ class Wishlist(models.Model):
         return self.user.first_name + "'s wishlist"
 
 
-class SavedForLater(models.Model):
-    user = models.OneToOneField(
-        User, on_delete=models.CASCADE, primary_key=True, related_name="savedforlater")
-
-    def __str__(self):
-        return self.user.first_name + "'s saved for later"
-
-
 @receiver(post_save, sender=User)
 def create_components(sender, **kwargs):
-    if kwargs['created'] and kwargs.get('instance').is_customer == True:
-        cart = Cart.objects.create(user=kwargs.get('instance'))
-        wishlist = Wishlist.objects.create(user=kwargs.get('instance'))
-        savedforlater = SavedForLater.objects.create(
-            user=kwargs.get('instance'))
+    if kwargs['created']:
+        """
+        Generating token
+        """
+        token = Token.objects.create(user=kwargs.get('instance'))
 
-        kwargs.get('instance').username = kwargs.get('instance').email
-        print("DONE")
+        if kwargs.get('instance').is_customer == True:
+            """
+            Create cart and wishlist for customer on account creation
+            """
+            cart = Cart.objects.create(user=kwargs.get('instance'))
+            wishlist = Wishlist.objects.create(user=kwargs.get('instance'))
 
 
 @receiver(pre_save, sender=User)
 def pre_save_customer_receiver(sender, **kwargs):
     if kwargs.get('instance').is_customer == True or kwargs.get('instance').is_company == True:
-        kwargs.get('instance').username = kwargs.get('instance').email
+        """
+        Using email as username
+        """
+        kwargs.get('instance').email = kwargs.get('instance').username

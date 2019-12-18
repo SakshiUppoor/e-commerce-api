@@ -7,6 +7,8 @@ from .views import (
     CustomerUpdateAPIView,
     CustomerDeleteAPIView,
     CustomerChangePasswordAPIView,
+    CartItemListAPIView,
+    CartItemDetailAPIView,
 )
 
 app_name = 'customerapi'
@@ -19,4 +21,8 @@ urlpatterns = [
     path('<pk>/changepassword/',
          CustomerChangePasswordAPIView.as_view(), name='changepassword'),
     path('<pk>/delete/', CustomerDeleteAPIView.as_view(), name='delete'),
+    path('cart/', CartItemListAPIView.as_view(),
+         name='cartitemlist'),
+    path('cart/<int:pk>/', CartItemDetailAPIView.as_view(),
+         name='cartitemdetail'),
 ]

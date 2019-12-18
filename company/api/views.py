@@ -136,7 +136,7 @@ class CategoryDetailAPIView(RetrieveAPIView):
 class CategoryCreateAPIView(CreateAPIView):
     queryset = User.objects.all()
     serializer_class = CategorySerializer
-    permission_classes = [IsAdminUser,]
+    permission_classes = [AllowAny,]
     #authentication_classes = [TokenAuthentication,]
 
 class CategoryUpdateAPIView(RetrieveUpdateAPIView):
@@ -195,6 +195,7 @@ class ProductCreateAPIView(CreateAPIView):
     
     def perform_create(self, serializer):
         serializer.save(company=self.request.user)
+
 
 class ProductUpdateAPIView(RetrieveUpdateAPIView):
     queryset = Product.objects.all()
@@ -296,23 +297,21 @@ class OrderCreateAPIView(CreateAPIView):
     def perform_create(self, serializer):
         data = self.request.data
         order = CartItem.objects.get(id=data['order'])
-        if Product.objects.get(id=order.product.id).in_stock == 0:
-            return Response({'message':'Out Of Stock'})
+        if Product.objects.get(id=order.product.id).in_stock < CartItem.objects.get(id=data['order']).quantity:
+            return
         else:
             serializer.save()
-
-    '''def update(self, request, *args, **kwargs):
-        self.object = self.get_object()
-        serializer = self.get_serializer(data=request.data)
-
-        if serializer.is_valid():
-            # Check old password
-            product = serializer.data.get("product")
-            product.is_ordered = True
-            product.save()
-
-    def get(self, request, *args, **kwargs):
-        return self.list(request, *args, **kwargs)
-
-    def post(self, request, *args, **kwargs):
-        return self.create(request, *args, **kwargs)'''
+            
+    def create(self, request, *args, **kwargs):
+        response = super().create(request, *args, **kwargs)
+        data = self.request.data
+        order = CartItem.objects.get(id=data['order'])
+        message = "out of stock"
+        
+        if Order.objects.last().order == order:
+            message = "order placed"
+            
+        return Response({
+                'message': message,
+                'data': response.data
+            })

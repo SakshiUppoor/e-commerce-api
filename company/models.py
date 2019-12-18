@@ -96,21 +96,28 @@ class WishlistItem(models.Model):
 
 
 class Order(models.Model):
+    """
+    Order is a cart item which is ordered.
+    """
     order = models.OneToOneField(
         CartItem, on_delete=models.CASCADE, primary_key=True, related_name="order")
 
     def __str__(self):
-        return self.order
+        return self.order.__str__()
 
 
 @receiver(pre_save, sender=Order)
-def post_save_order_receiver(sender, **kwargs):
+def pre_save_order_receiver(sender, **kwargs):
+    """
+    Deducting quantity of order placed
+    from the no of products in stock and
+    marking the cart item as ordered.
+    """
     order = kwargs.get('instance').order
     if order.product.in_stock >= order.quantity:
         order.product.in_stock -= order.quantity
     else:
-        order.quantity = order.product.in_stock
-        order.product.in_stock = 0
+        return
     order.is_ordered = True
     order.product.save()
     order.save()
@@ -118,6 +125,9 @@ def post_save_order_receiver(sender, **kwargs):
 
 @receiver(post_save, sender=CartItem)
 def post_save_cartitem_receiver(sender, **kwargs):
+    """
+    Calculating cost of order.
+    """
     if kwargs['created']:
         cost = kwargs.get(
             'instance').quantity * kwargs.get('instance').product.rate

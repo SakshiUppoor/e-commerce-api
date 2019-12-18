@@ -28,6 +28,11 @@ from .serializers import (
 )
 
 
+from company.models import CartItem
+
+from company.api.serializers import CartItemSerializer
+
+
 class CustomerListAPIView(ListAPIView):
     queryset = User.objects.filter(is_customer=True)
     serializer_class = CustomerSerializer
@@ -90,3 +95,19 @@ class CustomerDeleteAPIView(DestroyAPIView):
     queryset = User.objects.filter(is_customer=True)
     serializer_class = CustomerSerializer
     permission_classes = [IsOwnerOrReadOnly]
+
+
+class CartItemListAPIView(ListAPIView):
+    serializer_class = CartItemSerializer
+    
+    def get_queryset(self, *args, **kwargs):
+        queryset = CartItem.objects.filter(cart__user=self.request.user,is_ordered=False).order_by('-id')
+        return queryset
+
+        
+class CartItemDetailAPIView(RetrieveAPIView):
+    serializer_class = CartItemSerializer
+
+    def get_queryset(self, *args, **kwargs):
+        queryset = CartItem.objects.filter(cart__user=self.request.user,is_ordered=False).order_by('-id')
+        return queryset

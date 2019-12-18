@@ -5,7 +5,9 @@ from rest_framework.serializers import (
     EmailField,
     ImageField,
     IntegerField,
+    ModelField,
     FloatField,
+    PrimaryKeyRelatedField,
     SerializerMethodField,
 )
 from customer.models import (
@@ -34,12 +36,13 @@ class CompanySerializer(ModelSerializer):
             'id',
             'name',
             'email',
-            'profile_images',
+            'profile_image',
         ]
 
 
 class CompanyUserCreateSerializer(ModelSerializer):
     name = CharField(source='first_name')
+    email = EmailField(source='username')
 
     class Meta:
         model = User
@@ -47,13 +50,17 @@ class CompanyUserCreateSerializer(ModelSerializer):
             'name',
             'email',
             'password',
-            'profile_images',
+            'profile_image',
         ]
 
     def create(self, validated_data):
-        validated_data['username'] = validated_data['email']
-        if validated_data['profile_images'] == None:
-            del validated_data['profile_images']
+        """
+        If profile image is not provided, 
+        removing the field from the dictionary,
+        so that default image is used.
+        """
+        if 'profile_image' in validated_data and validated_data['profile_image'] == None:
+            del validated_data['profile_image']
         return User.objects.create_user(**validated_data)
 
 
@@ -77,7 +84,7 @@ class CompanyUpdateSerializer(ModelSerializer):
             'id',
             'name',
             'email',
-            'profile_images',
+            'profile_image',
         ]
 
 
@@ -103,6 +110,10 @@ class SubcategorySerializer(ModelSerializer):
 
 
 class SubcategoryCreateSerializer(ModelSerializer):
+    name = CharField(required=True)
+    category = PrimaryKeyRelatedField(
+        queryset=Category.objects.all(), required=True)
+
     class Meta:
         model = Subcategory
         fields = [
@@ -132,6 +143,12 @@ class ProductSerializer(ModelSerializer):
 
 
 class ProductCreateSerializer(ModelSerializer):
+    rate = FloatField(required=True)
+    name = CharField(required=True)
+    subcategory = PrimaryKeyRelatedField(
+        queryset=Subcategory.objects.all(), required=True)
+    in_stock = IntegerField(required=True)
+
     class Meta:
         model = Product
         fields = [
@@ -144,9 +161,13 @@ class ProductCreateSerializer(ModelSerializer):
         ]
 
     def create(self, validated_data):
-        if validated_data['product_image'] == None:
+        """
+        If product image is not provided, 
+        removing the field from the dictionary,
+        so that default image is used.
+        """
+        if 'product_image' in validated_data and validated_data['product_image'] == None:
             validated_data.pop('product_image', None)
-        print(type(validated_data))
         item = Product.objects.create(**validated_data)
         return item
 
@@ -165,6 +186,8 @@ class CartItemSerializer(ModelSerializer):
 
 
 class CartItemCreateSerializer(ModelSerializer):
+    quantity = IntegerField(required=True)
+
     class Meta:
         model = CartItem
         fields = [
@@ -182,7 +205,10 @@ class WishlistItemSerializer(ModelSerializer):
         ]
 
     def create(self, validated_data):
-        print(validated_data)
+        """
+        Creating wishlistitem only if it
+        doesn't already exist in the user's list.
+        """
         item, created = WishlistItem.objects.get_or_create(
             product=validated_data['product'], wishlist=Wishlist.objects.get(user=self.context['request'].user))
         return item
@@ -204,7 +230,16 @@ class OrderSerializer(ModelSerializer):
         ]
 
     def __init__(self, *args, **kwargs):
+        """
+        Filter for the order field.
+        Customers can only order from their cart items.
+        """
         super(OrderSerializer, self).__init__(*args, **kwargs)
         request_user = self.context['request'].user
         self.fields['order'].queryset = CartItem.objects.filter(
             cart__user=request_user, is_ordered=False)
+
+    def create(self, validated_data):
+        product = validated_data['order'].product
+        item = Order.objects.create(**validated_data)
+        return item

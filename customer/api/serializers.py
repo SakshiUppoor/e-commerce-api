@@ -1,4 +1,10 @@
-from rest_framework.serializers import ModelSerializer, CharField, Serializer
+from rest_framework.serializers import (
+    ModelSerializer,
+    CharField,
+    EmailField,
+    ImageField,
+    Serializer
+)
 
 from customer.models import User
 
@@ -14,12 +20,14 @@ class CustomerSerializer(ModelSerializer):
         ]
 
     def create(self, validated_data):
-        print("hello!!!!!!")
         return User.objects.create_user(**validated_data)
 
 
 class CustomerCreateSerializer(ModelSerializer):
+    first_name = CharField(required=True)
+    last_name = CharField(required=True)
     password = CharField(write_only=True)
+    email = EmailField(source='username')
 
     class Meta:
         model = User
@@ -28,6 +36,7 @@ class CustomerCreateSerializer(ModelSerializer):
             'last_name',
             'email',
             'password',
+            'profile_image',
         ]
 
     def create(self, validated_data):
@@ -58,4 +67,5 @@ class CustomerUpdateSerializer(ModelSerializer):
             'first_name',
             'last_name',
             'email',
+            'profile_image'
         ]
