@@ -15,20 +15,32 @@ from customer.models import (
     Cart,
     Wishlist,
 )
+
+from customer.api.serializers import CustomerSerializer
+
 from company.models import (
     Category,
     Subcategory,
     Product,
     CartItem,
     WishlistItem,
-    Order
+    Order,
 )
 
 from rest_framework.response import Response
+from rest_framework.validators import UniqueValidator
 
 
 class CompanySerializer(ModelSerializer):
-    name = CharField(source='first_name', read_only=True)
+    required = True
+    name = CharField(source='first_name')
+    email = EmailField(source='username', validators=[
+                       UniqueValidator(queryset=User.objects.all())])
+    password = CharField(
+        write_only=True,
+        required=True,
+        style={'input_type': 'password'},
+    )
 
     class Meta:
         model = User
@@ -37,20 +49,7 @@ class CompanySerializer(ModelSerializer):
             'name',
             'email',
             'profile_image',
-        ]
-
-
-class CompanyUserCreateSerializer(ModelSerializer):
-    name = CharField(source='first_name')
-    email = EmailField(source='username')
-
-    class Meta:
-        model = User
-        fields = [
-            'name',
-            'email',
             'password',
-            'profile_image',
         ]
 
     def create(self, validated_data):
@@ -61,34 +60,13 @@ class CompanyUserCreateSerializer(ModelSerializer):
         """
         if 'profile_image' in validated_data and validated_data['profile_image'] == None:
             del validated_data['profile_image']
-        return User.objects.create_user(**validated_data)
-
-
-class CompanyChangePasswordSerializer(Serializer):
-    class Meta:
-        model = User
-        fields = [
-            'old_password',
-            'new_password',
-        ]
-    old_password = CharField(required=True)
-    new_password = CharField(required=True)
-
-
-class CompanyUpdateSerializer(ModelSerializer):
-    name = CharField(source='first_name')
-
-    class Meta:
-        model = User
-        fields = [
-            'id',
-            'name',
-            'email',
-            'profile_image',
-        ]
+        return User.objects.create_user(**validated_data, is_company=True)
 
 
 class CategorySerializer(ModelSerializer):
+    name = CharField(validators=[
+        UniqueValidator(queryset=Category.objects.all())])
+
     class Meta:
         model = Category
         fields = [
@@ -98,67 +76,37 @@ class CategorySerializer(ModelSerializer):
 
 
 class SubcategorySerializer(ModelSerializer):
-    category = CharField(source='category.name', read_only=True)
+    required = True
+    category = CategorySerializer(many=False,)
 
     class Meta:
         model = Subcategory
-        fields = [
-            'id',
-            'name',
-            'category',
-        ]
+        exclude = []
 
 
 class SubcategoryCreateSerializer(ModelSerializer):
-    name = CharField(required=True)
-    category = PrimaryKeyRelatedField(
-        queryset=Category.objects.all(), required=True)
+    required = True
 
     class Meta:
         model = Subcategory
-        fields = [
-            'name',
-            'category',
-        ]
+        exclude = []
 
 
 class ProductSerializer(ModelSerializer):
-    category = CharField(source='subcategory.category.name', read_only=True)
-    company = CharField(source='company.first_name', read_only=True)
+    subcategory = SubcategorySerializer(many=False,)
+    company = CompanySerializer(many=False,)
 
     class Meta:
         model = Product
-        fields = [
-            'id',
-            'name',
-            'company',
-            'rate',
-            'subcategory',
-            'category',
-            'description',
-            'in_stock',
-            'product_image',
-            'slug',
-        ]
+        exclude = []
 
 
 class ProductCreateSerializer(ModelSerializer):
-    rate = FloatField(required=True)
-    name = CharField(required=True)
-    subcategory = PrimaryKeyRelatedField(
-        queryset=Subcategory.objects.all(), required=True)
-    in_stock = IntegerField(required=True)
+    required = True
 
     class Meta:
         model = Product
-        fields = [
-            'name',
-            'rate',
-            'subcategory',
-            'description',
-            'in_stock',
-            'product_image',
-        ]
+        exclude = ['slug', 'company']
 
     def create(self, validated_data):
         """
@@ -168,41 +116,59 @@ class ProductCreateSerializer(ModelSerializer):
         """
         if 'product_image' in validated_data and validated_data['product_image'] == None:
             validated_data.pop('product_image', None)
-        item = Product.objects.create(**validated_data)
+        company = self.context['request'].user
+        item = Product.objects.create(**validated_data, company=company)
         return item
 
 
+class CartSerializer(ModelSerializer):
+    user = CustomerSerializer(many=False,)
+
+    class Meta:
+        model = Cart
+        exclude = []
+
+
 class CartItemSerializer(ModelSerializer):
-    product = CharField(source='product.name', read_only=True)
+    product = ProductSerializer(many=False,)
+    cart = CartSerializer(many=False,)
 
     class Meta:
         model = CartItem
-        fields = [
-            'id',
-            'product',
-            'quantity',
-            'cost',
-        ]
+        exclude = ['is_ordered']
 
 
 class CartItemCreateSerializer(ModelSerializer):
-    quantity = IntegerField(required=True)
-
     class Meta:
         model = CartItem
-        fields = [
-            'product',
-            'quantity',
-        ]
+        fields = ['product', 'quantity']
+
+    def create(self, validated_data):
+        cart = Cart.objects.get(user=self.context['request'].user)
+        return CartItem.objects.create(cart=cart, **validated_data)
+
+
+class WishlistSerializer(ModelSerializer):
+    user = CustomerSerializer(many=False,)
+
+    class Meta:
+        model = Wishlist
+        exclude = []
 
 
 class WishlistItemSerializer(ModelSerializer):
+    product = ProductSerializer(many=False,)
+    wishlist = WishlistSerializer()
+
     class Meta:
         model = WishlistItem
-        fields = [
-            'id',
-            'product',
-        ]
+        exclude = []
+
+
+class WishlistItemCreateSerializer(ModelSerializer):
+    class Meta:
+        model = WishlistItem
+        exclude = ['wishlist']
 
     def create(self, validated_data):
         """
@@ -215,6 +181,14 @@ class WishlistItemSerializer(ModelSerializer):
 
 
 class OrderSerializer(ModelSerializer):
+    order = CartItemSerializer(many=False,)
+
+    class Meta:
+        model = Order
+        exclude = []
+
+
+class OrderCreateSerializer(ModelSerializer):
     quantity = CharField(
         source='order.product.quantity', read_only=True)
     cost = CharField(source='order.cost', read_only=True)
@@ -234,7 +208,7 @@ class OrderSerializer(ModelSerializer):
         Filter for the order field.
         Customers can only order from their cart items.
         """
-        super(OrderSerializer, self).__init__(*args, **kwargs)
+        super(OrderCreateSerializer, self).__init__(*args, **kwargs)
         request_user = self.context['request'].user
         self.fields['order'].queryset = CartItem.objects.filter(
             cart__user=request_user, is_ordered=False)

@@ -1,11 +1,5 @@
-from rest_framework.generics import (
-    ListAPIView,
-    RetrieveAPIView,
-    CreateAPIView,
-    RetrieveUpdateAPIView,
-    DestroyAPIView,
-    UpdateAPIView,
-)
+from .serializers import CustomerSerializer
+from rest_framework.viewsets import ModelViewSet
 
 from rest_framework import status
 from rest_framework.response import Response
@@ -20,19 +14,15 @@ from rest_framework.permissions import (
 from customer.models import User
 
 from.permissions import IsOwnerOrReadOnly
-from .serializers import (
-    CustomerSerializer,
-    CustomerCreateSerializer,
-    CustomerUpdateSerializer,
-    CustomerChangePasswordSerializer,
-)
 
 
-from company.models import CartItem
+class CustomerViewSet(ModelViewSet):
+    serializer_class = CustomerSerializer
+    queryset = User.objects.filter(is_customer=True)
+    permission_classes = [IsOwnerOrReadOnly]
 
-from company.api.serializers import CartItemSerializer
 
-
+'''
 class CustomerListAPIView(ListAPIView):
     queryset = User.objects.filter(is_customer=True)
     serializer_class = CustomerSerializer
@@ -57,6 +47,7 @@ class CustomerUpdateAPIView(RetrieveUpdateAPIView):
     serializer_class = CustomerUpdateSerializer
     permission_classes = [IsOwnerOrReadOnly]
     model = User
+
 
 class CustomerChangePasswordAPIView(UpdateAPIView):
     queryset = User.objects.filter(is_customer=True)
@@ -95,19 +86,4 @@ class CustomerDeleteAPIView(DestroyAPIView):
     queryset = User.objects.filter(is_customer=True)
     serializer_class = CustomerSerializer
     permission_classes = [IsOwnerOrReadOnly]
-
-
-class CartItemListAPIView(ListAPIView):
-    serializer_class = CartItemSerializer
-    
-    def get_queryset(self, *args, **kwargs):
-        queryset = CartItem.objects.filter(cart__user=self.request.user,is_ordered=False).order_by('-id')
-        return queryset
-
-        
-class CartItemDetailAPIView(RetrieveAPIView):
-    serializer_class = CartItemSerializer
-
-    def get_queryset(self, *args, **kwargs):
-        queryset = CartItem.objects.filter(cart__user=self.request.user,is_ordered=False).order_by('-id')
-        return queryset
+'''

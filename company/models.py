@@ -36,9 +36,9 @@ class Subcategory(models.Model):
 class Product(models.Model):
     name = models.CharField(max_length=50, blank=False)
     slug = models.SlugField(max_length=250, null=True, blank=True)
-    rate = models.FloatField(default=0)
-    description = models.CharField(max_length=1000, blank=True)
-    in_stock = models.IntegerField(default=0)
+    rate = models.FloatField(default=0, blank=False)
+    description = models.CharField(max_length=1000, blank=False)
+    in_stock = models.IntegerField(blank=False)
     company = models.ForeignKey(
         User, on_delete=models.CASCADE, null=True)
     product_image = models.ImageField(
@@ -71,12 +71,12 @@ def pre_save_product_receiver(sender, instance, *args, **kwargs):
 @receiver(pre_save, sender=User)
 def pre_save_company_receiver(sender, **kwargs):
     if kwargs.get('instance').is_company == True:
-        kwargs.get('instance').username = kwargs.get('instance').email
+        kwargs.get('instance').email = kwargs.get('instance').username
 
 
 class CartItem(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    quantity = models.PositiveIntegerField(default=1)
+    quantity = models.PositiveIntegerField(blank=False)
     cost = models.FloatField(default=0)
     cart = models.ForeignKey(
         Cart, on_delete=models.CASCADE, null=True)
@@ -123,13 +123,10 @@ def pre_save_order_receiver(sender, **kwargs):
     order.save()
 
 
-@receiver(post_save, sender=CartItem)
+@receiver(pre_save, sender=CartItem)
 def post_save_cartitem_receiver(sender, **kwargs):
     """
     Calculating cost of order.
     """
-    if kwargs['created']:
-        cost = kwargs.get(
-            'instance').quantity * kwargs.get('instance').product.rate
-        kwargs.get('instance').cost = cost
-        kwargs.get('instance').save()
+    kwargs.get('instance').cost = kwargs.get(
+        'instance').quantity * kwargs.get('instance').product.rate

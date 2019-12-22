@@ -1,15 +1,20 @@
 from rest_framework.serializers import (
     ModelSerializer,
-    CharField,
     EmailField,
-    ImageField,
-    Serializer
+    CharField,
 )
 
 from customer.models import User
 
 
 class CustomerSerializer(ModelSerializer):
+    email = EmailField(source='username')
+    password = CharField(
+        write_only=True,
+        required=True,
+        style={'input_type': 'password'},
+    )
+
     class Meta:
         model = User
         fields = [
@@ -17,55 +22,11 @@ class CustomerSerializer(ModelSerializer):
             'first_name',
             'last_name',
             'email',
-        ]
-
-    def create(self, validated_data):
-        return User.objects.create_user(**validated_data)
-
-
-class CustomerCreateSerializer(ModelSerializer):
-    first_name = CharField(required=True)
-    last_name = CharField(required=True)
-    password = CharField(write_only=True)
-    email = EmailField(source='username')
-
-    class Meta:
-        model = User
-        fields = [
-            'first_name',
-            'last_name',
-            'email',
-            'password',
             'profile_image',
+            'password',
         ]
 
     def create(self, validated_data):
-        user = super(CustomerCreateSerializer, self).create(validated_data)
-        user.set_password(validated_data['password'])
-        user.save()
-        return user
-
-
-class CustomerChangePasswordSerializer(Serializer):
-    class Meta:
-        model = User
-        fields = [
-            'old_password',
-            'new_password',
-        ]
-    """
-    Serializer for password change endpoint.
-    """
-    old_password = CharField(required=True)
-    new_password = CharField(required=True)
-
-
-class CustomerUpdateSerializer(ModelSerializer):
-    class Meta:
-        model = User
-        fields = [
-            'first_name',
-            'last_name',
-            'email',
-            'profile_image'
-        ]
+        if 'profile_image' in validated_data and validated_data['profile_image'] == None:
+            del validated_data['profile_image']
+        return User.objects.create_user(**validated_data, is_customer=True)
