@@ -20,6 +20,22 @@
   </p>
 </p>
 
+### Install
+
+Creating and activating virtual environment
+
+    virtualenv .
+    cd Scripts
+    activate
+  
+Navigate back to the main folder. Installing requirements and making migrations
+
+    pip install -r requirements.txt
+    cd bazaar
+    python manage.gy makemigrations
+    python manage.py migrate
+    python manage.py runserver
+
 ### Features
 
 * ##### Token + Session Authentication
